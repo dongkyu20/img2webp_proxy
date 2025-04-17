@@ -1,0 +1,11 @@
+*.pem
+*.ppk
+id_rsa
+id_rsa.pub
+*.key
+*.json
+!del/*
+!venv/**
+!carbon_logs/
+!emission_logs/
+

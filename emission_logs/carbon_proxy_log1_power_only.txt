@@ -1,0 +1,74 @@
+Combined Power (CPU + GPU + ANE): 5943 mW
+Combined Power (CPU + GPU + ANE): 1989 mW
+Combined Power (CPU + GPU + ANE): 6846 mW
+Combined Power (CPU + GPU + ANE): 1170 mW
+Combined Power (CPU + GPU + ANE): 2674 mW
+Combined Power (CPU + GPU + ANE): 352 mW
+Combined Power (CPU + GPU + ANE): 684 mW
+Combined Power (CPU + GPU + ANE): 577 mW
+Combined Power (CPU + GPU + ANE): 1294 mW
+Combined Power (CPU + GPU + ANE): 461 mW
+Combined Power (CPU + GPU + ANE): 98 mW
+Combined Power (CPU + GPU + ANE): 2994 mW
+Combined Power (CPU + GPU + ANE): 8927 mW
+Combined Power (CPU + GPU + ANE): 155 mW
+Combined Power (CPU + GPU + ANE): 2354 mW
+Combined Power (CPU + GPU + ANE): 418 mW
+Combined Power (CPU + GPU + ANE): 153 mW
+Combined Power (CPU + GPU + ANE): 1858 mW
+Combined Power (CPU + GPU + ANE): 2522 mW
+Combined Power (CPU + GPU + ANE): 626 mW
+Combined Power (CPU + GPU + ANE): 127 mW
+Combined Power (CPU + GPU + ANE): 298 mW
+Combined Power (CPU + GPU + ANE): 274 mW
+Combined Power (CPU + GPU + ANE): 107 mW
+Combined Power (CPU + GPU + ANE): 2407 mW
+Combined Power (CPU + GPU + ANE): 1608 mW
+Combined Power (CPU + GPU + ANE): 10529 mW
+Combined Power (CPU + GPU + ANE): 4892 mW
+Combined Power (CPU + GPU + ANE): 2190 mW
+Combined Power (CPU + GPU + ANE): 1793 mW
+Combined Power (CPU + GPU + ANE): 2222 mW
+Combined Power (CPU + GPU + ANE): 3005 mW
+Combined Power (CPU + GPU + ANE): 2076 mW
+Combined Power (CPU + GPU + ANE): 1657 mW
+Combined Power (CPU + GPU + ANE): 1480 mW
+Combined Power (CPU + GPU + ANE): 2076 mW
+Combined Power (CPU + GPU + ANE): 1750 mW
+Combined Power (CPU + GPU + ANE): 1418 mW
+Combined Power (CPU + GPU + ANE): 370 mW
+Combined Power (CPU + GPU + ANE): 48 mW
+Combined Power (CPU + GPU + ANE): 173 mW
+Combined Power (CPU + GPU + ANE): 282 mW
+Combined Power (CPU + GPU + ANE): 5336 mW
+Combined Power (CPU + GPU + ANE): 517 mW
+Combined Power (CPU + GPU + ANE): 358 mW
+Combined Power (CPU + GPU + ANE): 525 mW
+Combined Power (CPU + GPU + ANE): 362 mW
+Combined Power (CPU + GPU + ANE): 372 mW
+Combined Power (CPU + GPU + ANE): 199 mW
+Combined Power (CPU + GPU + ANE): 391 mW
+Combined Power (CPU + GPU + ANE): 478 mW
+Combined Power (CPU + GPU + ANE): 225 mW
+Combined Power (CPU + GPU + ANE): 187 mW
+Combined Power (CPU + GPU + ANE): 115 mW
+Combined Power (CPU + GPU + ANE): 267 mW
+Combined Power (CPU + GPU + ANE): 135 mW
+Combined Power (CPU + GPU + ANE): 256 mW
+Combined Power (CPU + GPU + ANE): 179 mW
+Combined Power (CPU + GPU + ANE): 571 mW
+Combined Power (CPU + GPU + ANE): 143 mW
+
+측정시간: 1분
+
+Total Combined Power: 93493 mW
+
+93493 mW를 1분 동안 소모했을 때 발생하는 탄소 배출량은 약 0.74 gCO2e
+
+맥북 m2 air 16g, 블루투스 마우스, usb 키보드 환경. 터미널에서 우분투 서버 실행 중. 윈드서프 터미널에서 모든 명령어 입력
+
+me.go.kr(환경부) mois.go.kr(행정안전부) gov.kr(정부24) 방문
+
+me.go.kr 900,000 Bytes -> 400,000 Bytes (약 11초)
+mois.go.kr 1,100,000 Bytes -> 800,000 Bytes (약 17초)
+gov.kr 1,300,000 Bytes -> 700,000 Bytes (약 11초)
