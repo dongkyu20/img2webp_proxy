@@ -1,5 +1,4 @@
 # -*- coding: utf-8 -*-
-from codecarbon import OfflineEmissionsTracker
 from mitmproxy import http
 from mitmproxy import ctx
 import re
