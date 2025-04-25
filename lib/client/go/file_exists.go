@@ -1,4 +1,4 @@
-package main
+package file_exists
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"google.golang.org/api/option"
 )
 
-func main() {
+func init() {
 	// 환경 변수 설정
 	os.Setenv("REQUESTS_CA_BUNDLE", "mitmproxy-ca-cert.pem")
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "woven-province-411903-b1b12d94b3ac.json")
