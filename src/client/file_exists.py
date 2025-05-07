@@ -7,7 +7,7 @@ os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "woven-province-411903-b1b12d94b3
 
 
 def list_blobs_in_bucket(bucket_name, output_file="cdn_file_list.txt", timeout=None):
-    """지정된 Google Cloud Storage 버킷의 파일 목록을 출력하고 텍스트 파일에 저장합니다."""
+    """지정된 Google Cloud Storage 버킷의 파일 목록과 각 파일의 용량을 출력하고 텍스트 파일에 저장합니다."""
     
     # 클라이언트 초기화 - timeout 설정 추가
     storage_client = storage.Client()
@@ -26,8 +26,18 @@ def list_blobs_in_bucket(bucket_name, output_file="cdn_file_list.txt", timeout=N
             found_files = False
             for blob in blobs:
                 blob_name = blob.name
-                print(f"- {blob_name}") # 콘솔에 출력
-                f.write(f"{blob_name}\n") # 파일에 저장
+                blob_size = blob.size  # 파일 크기(bytes)
+                size_kb = blob_size / 1024  # KB 단위 변환
+                size_mb = size_kb / 1024  # MB 단위 변환
+                
+                # 적절한 크기 단위 선택
+                if size_mb >= 1:
+                    size_display = f"{size_mb:.2f} MB"
+                else:
+                    size_display = f"{size_kb:.2f} KB"
+                
+                print(f"- {blob_name} (크기: {size_display})") # 콘솔에 출력
+                f.write(f"{blob_name}\t{blob_size}\n") # 파일에 저장 (탭으로 구분)
                 found_files = True
 
             if not found_files:

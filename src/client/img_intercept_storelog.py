@@ -14,19 +14,18 @@ from file_exists import list_blobs_in_bucket
 os.environ["REQUESTS_CA_BUNDLE"] = "mitmproxy-ca-cert.pem"
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "woven-province-411903-b1b12d94b3ac.json"
 
-os.environ["HTTP_PROXY"] = "http://127.0.0.1:8080"
-os.environ["HTTPS_PROXY"] = "http://127.0.0.1:8080"
+os.environ["HTTP_PROXY"] = "http://127.0.0.1:8227"
+os.environ["HTTPS_PROXY"] = "http://127.0.0.1:8227"
 
 
 # --- 사용자 설정 ---
 CDN_BASE_URL = "https://storage.cloud.google.com/cdn.ecarbon.kr" # 실제 CDN 주소로 변경
-# CHECK_TIMEOUT_SECONDS = 3 # CDN 확인 요청 타임아웃 (초) api 방법 사용 후 사용하지 않음
 
 # --- 원격 로깅 설정 ---
 ENABLE_REMOTE_LOGGING = True # True로 설정하면 원격 로깅 활성화
 # 중요: 아래 IP 주소를 PC B의 실제 IP 주소로 변경하세요!
 REMOTE_LOG_SERVER_URL = "http://211.253.31.134:5000/log"
-REMOTE_LOG_TIMEOUT_SECONDS = 1 # 원격 로깅 요청 타임아웃
+REMOTE_LOG_TIMEOUT_SECONDS = 0.2 # 원격 로깅 요청 타임아웃
 # --- 원격 로깅 설정 끝 ---
 
 # --- 사용자 설정 끝 ---
@@ -36,7 +35,7 @@ ORIGINAL_IMAGE_EXT_REGEX = re.compile(r"\.(png|jpe?g)(\?.*)?$|[_=](png|jpe?g)($|
 # GCS 버킷 이름
 BUCKET_NAME = "cdn.ecarbon.kr"
 # 파일 목록 업데이트 주기 (초)
-UPDATE_INTERVAL = 3600  # 1시간 = 3600초
+UPDATE_INTERVAL = 1800  # 30분 = 1800초
     
 # CDN 파일 목록을 주기적으로 업데이트하는 함수
 def update_cdn_file_list_periodically():
@@ -141,7 +140,7 @@ class CheckAndLogMissingWebp:
         match = ORIGINAL_IMAGE_EXT_REGEX.search(flow.request.path)
         if match:
             domain = flow.request.pretty_host
-            original_path_full = flow.request.path
+            original_path_full = flow.request.path # 원본 URL
             parsed_url = urlparse(original_path_full)
             original_path_no_query = parsed_url.path
             original_path_query = parsed_url.query
@@ -150,6 +149,7 @@ class CheckAndLogMissingWebp:
             webp_filename = original_path_query + filename_base + ".webp"
             webp_path = f"{domain}/{webp_filename}"
 
+            # 경로 규칙 : CDN_BASE_URL / 도메인 주소 / 원본 경로의 쿼리문  + 원본 파일명.webp
             if CDN_BASE_URL.endswith('/'):
                 cdn_webp_url = CDN_BASE_URL + domain + '/' + webp_filename
             else:
@@ -164,11 +164,16 @@ class CheckAndLogMissingWebp:
                         {
                         "Location": cdn_webp_url, # 최종 CDN URL (.webp 파일명만 포함)
                         "Content-Type": "text/plain",
-                        "Cache-Control": "no-cache, no-store, must-revalidate",
-                        "Pragma": "no-cache",
-                        "Expires": "0",
-                    }
-                )
+                        "Cache-Control": "public, max-age=3600",
+                        # "Pragma": "no-cache",
+                        # "Expires": "0",
+                        }
+                    )
+                    log_message = (
+                        f"[Found WEBP] Found at {cdn_webp_url} "
+                        f"(Original: {original_path_full})"
+                    )
+                    send_log_to_remote("SUCCESS", log_message, original_path_full, domain, original_filename, filename_base, original_path_query)
                 else:
                     log_message = (
                         f"[Missing WEBP] Not found at {cdn_webp_url} "
