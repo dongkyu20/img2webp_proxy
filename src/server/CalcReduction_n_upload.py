@@ -66,7 +66,7 @@ def find_webp_file_size(webp_path: str) -> int:
         logger.error(f"WebP 파일 크기 검색 중 오류 발생: {e}")
         return -1
 
-def calc_reduction(original_url: str, webp_path: str) -> dict:
+def calc_reduction(domain: str, original_url: str, webp_path: str) -> dict:
     """
     원본 이미지와 WebP 이미지의 크기 차이를 계산합니다.
     
@@ -94,7 +94,7 @@ def calc_reduction(original_url: str, webp_path: str) -> dict:
     }
     
     # 원본 이미지 크기 검색
-    original_size = search_original_image_size(original_url, db, app)
+    original_size = search_original_image_size(domain, original_url, db, app)
     result['original_size'] = original_size
     
     # WebP 파일 크기 검색
@@ -145,11 +145,12 @@ def save_reduction_to_firestore(result: dict, domain: str, original_url: str, we
             'reduction_bytes': result['reduction_bytes'],
             'reduction_percent': result['reduction_percent'],
             'success': result['success'],
-            'timestamp': firestore.SERVER_TIMESTAMP
+            'timestamp': datetime.datetime.now().isoformat()
         }
         
         # Firestore에 문서 추가
-        doc_ref = collection_ref.document("유저 아이디 넣기").set(data, merge=True)
+        doc_ref = collection_ref.document("TestUser")
+        doc_ref.update({"reduction_logs": firestore.ArrayUnion([data])})
         
         logger.info(f"감소량 계산 결과가 Firestore에 저장되었습니다. 문서 ID: {doc_ref.id}")
         
@@ -176,7 +177,7 @@ def process_reduction(domain: str, original_url: str, webp_filename: str) -> dic
     webp_path = f"{domain}/{webp_filename}"
     
     # 감소량 계산
-    result = calc_reduction(original_url, webp_path)
+    result = calc_reduction(domain, original_url, webp_path)
     
     # 계산 결과가 성공적이면 Firestore에 저장
     if result['success']:

@@ -9,4 +9,5 @@ del/
 venv/
 carbon_logs/
 emission_logs/
-
+vvenv/
+!requirements.txt

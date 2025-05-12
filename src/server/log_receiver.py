@@ -73,7 +73,7 @@ async def receive_log(log_entry: LogEntry, background_tasks: BackgroundTasks): #
             print(f"[{log_entry.timestamp}] [{log_entry.level.upper()}] {log_entry.message} (Found_URL: {log_entry.origin_url}) (Domain: {log_entry.domain})")
             background_tasks.add_task(
                 process_reduction,
-                log_entry.domain, "https://" + log_entry.origin_url, log_entry.filename_base + ".webp"
+                log_entry.domain, "https://" + log_entry.domain + log_entry.origin_url, log_entry.filename_base + ".webp"
             )
         else:
             print(f"[{log_entry.timestamp}] [{log_entry.level.upper()}] {log_entry.message} (Missed_URL: {log_entry.origin_url}) (Domain: {log_entry.domain})")
