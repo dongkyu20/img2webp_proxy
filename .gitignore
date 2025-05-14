@@ -12,4 +12,3 @@ emission_logs/
 dist/
 build/
 !requirements.txt
-build_package.py
