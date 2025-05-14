@@ -41,12 +41,12 @@ def list_blobs_in_bucket(bucket_name, output_file="cdn_file_list.txt", timeout=N
                 found_files = True
 
             if not found_files:
-                print("  (버킷에 파일이 없습니다)")
-                f.write("(버킷에 파일이 없습니다)\n")
+                print("  (file not found in bucket)")
+                f.write("(file not found in bucket)\n")
 
     except exceptions.NotFound:
-        print(f"오류: 버킷 '{bucket_name}'을(를) 찾을 수 없습니다.")
+        print(f"Error: Bucket '{bucket_name}' not found.")
     except exceptions.Forbidden:
-        print(f"오류: 버킷 '{bucket_name}'에 접근할 권한이 없습니다. IAM 권한을 확인하세요.")
+        print(f"Error: Access to bucket '{bucket_name}' forbidden. Check IAM permissions.")
     except Exception as e:
-        print(f"알 수 없는 오류 발생: {e}")
+        print(f"Unknown error: {e}")

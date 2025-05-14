@@ -3,46 +3,17 @@ import platform
 import time
 import signal
 import os
-import sys
-import shutil
+import datetime
+from codecarbon import EmissionsTracker
 
 # mitmproxy 설정
 MITM_HOST = "127.0.0.1"
 MITM_PORT = "8227"
+MITM_SCRIPT_PATH = "src/client/img_intercept_storelog.py"  # mitmproxy 애드온 스크립트 경로 (없으면 None 또는 빈 문자열)
 
-# 현재 스크립트 경로 가져오기
-CURRENT_DIR = os.path.dirname(os.path.abspath(__file__))
-
-# 패키지 내부에서 실행되는지 확인
-if getattr(sys, 'frozen', False):
-    # PyInstaller로 빌드된 애플리케이션인 경우
-    BASE_DIR = os.path.dirname(sys.executable)
-    MITM_SCRIPT_PATH = os.path.join(BASE_DIR, "_internal", "img_intercept_storelog.py")
-    
-    # mitmdump 경로 설정 - 패키지 내부에서 찾기
-    MITMDUMP_PATH = os.path.join(BASE_DIR, "mitmdump")
-    if platform.system() == "Windows":
-        MITMDUMP_PATH = os.path.join(BASE_DIR, "mitmdump.exe")
-    
-    # _internal 디렉토리에서도 찾기
-    if not os.path.exists(MITMDUMP_PATH):
-        MITMDUMP_PATH = os.path.join(BASE_DIR, "_internal", "mitmdump")
-        if platform.system() == "Windows":
-            MITMDUMP_PATH = os.path.join(BASE_DIR, "_internal", "mitmdump.exe")
-    
-    # 시스템 PATH에서 찾기
-    if not os.path.exists(MITMDUMP_PATH):
-        mitmdump_in_path = shutil.which("mitmdump")
-        if mitmdump_in_path:
-            MITMDUMP_PATH = mitmdump_in_path
-        else:
-            # 기본값으로 명령어만 사용
-            MITMDUMP_PATH = "mitmdump"
-            print("Warning: mitmdump binary not found in package. Using system PATH.")
-else:
-    # 일반 Python 스크립트로 실행되는 경우
-    MITM_SCRIPT_PATH = os.path.join(CURRENT_DIR, "img_intercept_storelog.py")
-    MITMDUMP_PATH = "mitmdump"  # 시스템 PATH에서 찾기
+# codecarbon 설정
+CARBON_LOG_DIR = "emission_logs"
+CARBON_LOG_FILE = "proxy_emissions.csv"
 
 # --- OS별 프록시 설정 함수 ---
 
@@ -55,10 +26,10 @@ def set_windows_proxy():
         # 변경사항 즉시 적용 (일부 앱에서는 재시작 필요할 수 있음)
         subprocess.run(['rundll32.exe', 'inetcpl.cpl,ClearMyTracksByProcess', '8'], check=True, creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.run(["ipconfig", "/flushdns"], capture_output=True, text=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        print(f"Windows proxy set: {MITM_HOST}:{MITM_PORT}")
+        print(f"Windows 프록시 설정: {MITM_HOST}:{MITM_PORT}")
     except Exception as e:
-        print(f"Windows proxy set error: {e}")
-        print("Run as administrator.")
+        print(f"Windows 프록시 설정 오류: {e}")
+        print("관리자 권한으로 실행해야 할 수 있습니다.")
 
 def unset_windows_proxy():
     try:
@@ -67,9 +38,9 @@ def unset_windows_proxy():
         # 변경사항 즉시 적용
         subprocess.run(['rundll32.exe', 'inetcpl.cpl,ClearMyTracksByProcess', '8'], check=True, creationflags=subprocess.CREATE_NO_WINDOW)
         subprocess.run(["ipconfig", "/flushdns"], capture_output=True, text=True, check=True, creationflags=subprocess.CREATE_NO_WINDOW)
-        print("Windows proxy unset.")
+        print("Windows 프록시 설정 해제됨.")
     except Exception as e:
-        print(f"Windows proxy unset error: {e}")
+        print(f"Windows 프록시 해제 오류: {e}")
 
 # macOS용 프록시 설정/해제
 def get_active_network_service_mac():
@@ -87,35 +58,35 @@ def get_active_network_service_mac():
                     # 'Hardware Port'를 확인하여 실제 활성화된 포트인지 한번 더 가늠
                     hw_port_info = subprocess.check_output(['networksetup', '-listnetworkserviceorder']).decode()
                     if f"(Hardware Port: {service}," in hw_port_info or f"(Device: en" in hw_port_info and service in hw_port_info: # Wi-Fi는 보통 en0, en1 등으로 표시됨
-                         print(f"Active network service detected: {service}")
+                         print(f"활성 네트워크 서비스 감지: {service}")
                          return service
             except subprocess.CalledProcessError:
                 continue # 해당 서비스 정보를 가져올 수 없는 경우 (예: 비활성 인터페이스)
     except Exception as e:
-        print(f"Active network service detection error: {e}")
+        print(f"활성 네트워크 서비스 감지 중 오류: {e}")
 
     # 기본값 또는 사용자에게 문의
     default_service = "Wi-Fi" # 또는 "Ethernet"
-    print(f"Active network service not detected. Using default service: '{default_service}'")
-    print("You can check the correct service name in 'Network Settings' or using the `networksetup -listallnetworkservices` command.")
+    print(f"활성 네트워크 서비스를 자동으로 감지하지 못했습니다. '{default_service}'를 기본값으로 사용합니다.")
+    print("정확한 서비스명은 '네트워크 환경설정'에서 확인하거나 `networksetup -listallnetworkservices` 명령으로 확인하세요.")
     return default_service
 
 
 def set_macos_proxy(service_name):
     if not service_name:
-        print("macOS network service name not found. Proxy cannot be set.")
+        print("macOS 네트워크 서비스 이름을 찾을 수 없어 프록시를 설정할 수 없습니다.")
         return
     try:
         subprocess.run(['networksetup', '-setwebproxy', service_name, MITM_HOST, MITM_PORT], check=True)
         subprocess.run(['networksetup', '-setsecurewebproxy', service_name, MITM_HOST, MITM_PORT], check=True)
-        print(f"macOS proxy set ({service_name}): {MITM_HOST}:{MITM_PORT}")
+        print(f"macOS 프록시 설정 ({service_name}): {MITM_HOST}:{MITM_PORT}")
     except Exception as e:
-        print(f"macOS proxy set error ({service_name}): {e}")
-        print("Permission issue may occur. Run as sudo if needed.")
+        print(f"macOS 프록시 설정 오류 ({service_name}): {e}")
+        print("권한 문제일 수 있습니다. 필요한 경우 스크립트를 sudo로 실행하세요.")
 
 def unset_macos_proxy(service_name):
     if not service_name:
-        print("macOS network service name not found. Proxy cannot be unset.")
+        print("macOS 네트워크 서비스 이름을 찾을 수 없어 프록시를 해제할 수 없습니다.")
         return
     try:
         subprocess.run(['networksetup', '-setwebproxystate', service_name, 'off'], check=True)
@@ -140,28 +111,29 @@ def set_linux_gnome_proxy():
         print(f"  export https_proxy=http://{MITM_HOST}:{MITM_PORT}")
         print(f"  export no_proxy=localhost,127.0.0.1")
     except Exception as e:
-        print(f"Linux (GNOME) proxy set error: {e}")
-        print("gsettings command not found or GNOME desktop environment not detected.")
+        print(f"Linux (GNOME) 프록시 설정 오류: {e}")
+        print("gsettings 명령어를 사용할 수 없거나, GNOME 데스크탑 환경이 아닐 수 있습니다.")
 
 def unset_linux_gnome_proxy():
     try:
         subprocess.run(['gsettings', 'set', 'org.gnome.system.proxy', 'mode', "'none'"], check=True)
-        print("Linux (GNOME) proxy unset.")
-        print("If environment variables were set, unset them in the terminal:")
+        print("Linux (GNOME) 프록시 설정 해제됨.")
+        print("환경 변수를 설정했다면, 터미널에서 해제하세요:")
         print(f"  unset http_proxy")
         print(f"  unset https_proxy")
         print(f"  unset no_proxy")
     except Exception as e:
-        print(f"Linux (GNOME) proxy unset error: {e}")
+        print(f"Linux (GNOME) 프록시 해제 오류: {e}")
 
-# --- Main logic ---
+# --- 메인 로직 ---
 mitm_process = None
 original_sigint_handler = signal.getsignal(signal.SIGINT)
 active_mac_service = None # macOS에서 사용될 활성 서비스 이름
+emissions_tracker = None # codecarbon 트래커 객체
 
 def cleanup_and_exit(signum, frame):
     global mitm_process, active_mac_service
-    print("\nReceived termination signal. Starting cleanup...")
+    print("\n종료 신호 수신. 정리 작업을 시작합니다...")
 
     current_os = platform.system()
     if current_os == "Windows":
@@ -178,11 +150,11 @@ def cleanup_and_exit(signum, frame):
             subprocess.run(['gsettings', '--version'], capture_output=True, check=True, timeout=1)
             unset_linux_gnome_proxy()
         except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
-            print("gsettings not found or response timeout. Skipping GNOME proxy unset.")
-            print("If using a different desktop environment (e.g., KDE) or manually set environment variables, please unset them manually.")
+            print("gsettings를 찾을 수 없거나 응답이 없어 GNOME 프록시 해제를 건너<0xEB><0x81>니다.")
+            print("다른 데스크탑 환경(KDE 등)을 사용 중이거나 환경 변수를 직접 설정했다면 수동으로 해제해야 합니다.")
 
     if mitm_process and mitm_process.poll() is None:
-        print("mitmproxy process terminating...")
+        print("mitmproxy 프로세스를 종료합니다...")
         if platform.system() == "Windows":
             mitm_process.send_signal(signal.CTRL_C_EVENT) # Windows에서는 Ctrl+C 이벤트
         else:
@@ -190,34 +162,53 @@ def cleanup_and_exit(signum, frame):
         try:
             mitm_process.wait(timeout=10)
         except subprocess.TimeoutExpired:
-            print("mitmproxy process terminated abnormally. Forcing termination...")
+            print("mitmproxy가 정상적으로 종료되지 않아 강제 종료합니다.")
             mitm_process.kill()
-        print("mitmproxy process terminated.")
+        print("mitmproxy가 종료되었습니다.")
 
-    # Restore original SIGINT handler (optional, script will exit here)
+    # 3. codecarbon 트래커 중지
+    if emissions_tracker is not None:
+        try:
+            emissions_tracker.stop()
+            print(f"탄소 배출량 측정 완료. 결과가 {os.path.join(CARBON_LOG_DIR, CARBON_LOG_FILE)}에 저장되었습니다.")
+        except Exception as e:
+            print(f"탄소 배출량 측정 중지 중 오류: {e}")
+
+    # 원래 SIGINT 핸들러 복원 (선택 사항, 스크립트가 여기서 종료되므로)
     signal.signal(signal.SIGINT, original_sigint_handler)
-    print("All cleanup completed. Exiting program.")
-    sys.exit()
+    print("모든 정리 작업 완료. 프로그램을 종료합니다.")
+    exit(0)
 
 if __name__ == "__main__":
-    signal.signal(signal.SIGINT, cleanup_and_exit) # Ctrl+C processing
-    signal.signal(signal.SIGTERM, cleanup_and_exit) # Optional signal handler for termination
+    signal.signal(signal.SIGINT, cleanup_and_exit) # Ctrl+C 처리기 등록
+    signal.signal(signal.SIGTERM, cleanup_and_exit) # 종료 신호 처리기 등록 (선택 사항)
 
     current_os = platform.system()
 
+    # codecarbon 설정 디렉토리 생성
+    os.makedirs(CARBON_LOG_DIR, exist_ok=True)
+
+    # codecarbon 트래커 시작
+    print("탄소 배출량 측정 시작...")
+    timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
+    emissions_tracker = EmissionsTracker(
+        project_name="proxy_script",
+        output_dir=CARBON_LOG_DIR,
+        output_file=CARBON_LOG_FILE,
+        log_level="error"
+    )
+    emissions_tracker.start()
+
     # mitmproxy 실행 명령어 구성
-    mitm_command = [MITMDUMP_PATH, "-p", MITM_PORT] # mitmproxy 또는 mitmweb으로 변경 가능
+    mitm_command = ["mitmdump", "-p", MITM_PORT] # mitmproxy 또는 mitmweb으로 변경 가능
     if MITM_SCRIPT_PATH and os.path.exists(MITM_SCRIPT_PATH):
         mitm_command.extend(["-s", MITM_SCRIPT_PATH])
     elif MITM_SCRIPT_PATH:
-        print(f"Warning: mitmproxy script '{MITM_SCRIPT_PATH}' not found.")
-        
-    print(f"Using mitmdump path: {MITMDUMP_PATH}")
-    print(f"Using script path: {MITM_SCRIPT_PATH}")
+        print(f"경고: mitmproxy 스크립트 '{MITM_SCRIPT_PATH}'를 찾을 수 없습니다.")
 
     try:
         # 1. mitmproxy 시작
-        print(f"mitmproxy starting (command: {' '.join(mitm_command)})...")
+        print(f"mitmproxy를 시작합니다 (명령어: {' '.join(mitm_command)})...")
         # Windows에서는 Popen에 creationflags=subprocess.CREATE_NEW_PROCESS_GROUP 추가하여 Ctrl+C가 부모에도 영향 없도록
         popen_kwargs = {}
         if platform.system() == "Windows":
@@ -227,11 +218,11 @@ if __name__ == "__main__":
         time.sleep(3) # mitmproxy가 시작될 시간을 줌
 
         if mitm_process.poll() is not None:
-            print("mitmproxy process failed to start. Please check the error.")
-            sys.exit()
-        print("mitmproxy process started.")
+            print("mitmproxy 시작에 실패했습니다. 오류를 확인하세요.")
+            exit(1)
+        print("mitmproxy가 실행 중입니다.")
 
-        # 2. System proxy settings
+        # 2. 시스템 프록시 설정
         if current_os == "Windows":
             set_windows_proxy()
         elif current_os == "Darwin": # macOS
@@ -243,15 +234,15 @@ if __name__ == "__main__":
                 subprocess.run(['gsettings', '--version'], capture_output=True, check=True, timeout=1)
                 set_linux_gnome_proxy()
             except (FileNotFoundError, subprocess.TimeoutExpired, subprocess.CalledProcessError):
-                print("gsettings not found or response timeout. Skipping GNOME proxy set.")
-                print("If using a different desktop environment (e.g., KDE) or manually set environment variables, please set them manually.")
-                print("Many CLI tools use HTTP_PROXY, HTTPS_PROXY environment variables.")
-                print(f"  Example: export http_proxy=http://{MITM_HOST}:{MITM_PORT}")
+                print("gsettings를 찾을 수 없거나 응답이 없습니다. GNOME 프록시 설정을 건너<0xEB><0x81>니다.")
+                print("다른 데스크탑 환경(KDE 등)을 사용 중이라면 해당 환경에 맞는 프록시 설정 명령어를 사용해야 합니다.")
+                print("많은 CLI 도구들은 HTTP_PROXY, HTTPS_PROXY 환경 변수를 사용합니다.")
+                print(f"  예: export http_proxy=http://{MITM_HOST}:{MITM_PORT}")
         else:
-            print(f"Unsupported OS: {current_os}. Please set proxy manually.")
+            print(f"지원되지 않는 OS: {current_os}. 프록시를 수동으로 설정해주세요.")
 
-        print("\nmitmproxy process started. System proxy settings applied.")
-        print("When done, close this window to terminate mitmproxy and restore proxy settings.")
+        print("\nmitmproxy가 실행 중이고 시스템 프록시가 설정되었습니다.")
+        print("작업 완료 후 이 창에서 Ctrl+C 를 누르면 mitmproxy가 종료되고 프록시 설정이 복원됩니다.")
 
         # mitmproxy가 종료될 때까지 대기 (또는 사용자가 Ctrl+C를 누를 때까지)
         mitm_process.wait() # mitmproxy 자체가 종료되면 이 스크립트도 정리 단계로 넘어감
@@ -264,5 +255,5 @@ if __name__ == "__main__":
         if mitm_process and mitm_process.poll() is None : # 아직 실행 중이라면
              cleanup_and_exit(None, None) # 강제 정리 호출
         elif not (signal.getsignal(signal.SIGINT) == cleanup_and_exit) : # 핸들러가 호출 안 된 경우
-             print("Main loop terminated before cleanup_and_exit handler was set. Attempting to restore proxy settings.")
+             print("메인 루프 외부에서 종료되어 프록시 복구를 시도합니다.")
              cleanup_and_exit(None, None) # 핸들러가 설정되기 전에 종료된 경우

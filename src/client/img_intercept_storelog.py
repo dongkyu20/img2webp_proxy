@@ -12,8 +12,11 @@ import time
 from file_exists import list_blobs_in_bucket
 from google.cloud import storage
 
-os.environ["REQUESTS_CA_BUNDLE"] = "mitmproxy-ca-cert.pem"
-os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "woven-province-411903-b1b12d94b3ac.json"
+# os.environ["REQUESTS_CA_BUNDLE"] = "mitmproxy-ca-cert.pem"
+# os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "woven-province-411903-b1b12d94b3ac.json"
+# Change from absolute paths to relative paths
+os.environ["REQUESTS_CA_BUNDLE"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "mitmproxy-ca-cert.pem")
+os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = os.path.join(os.path.dirname(os.path.abspath(__file__)), "woven-province-411903-b1b12d94b3ac.json")
 
 os.environ["HTTP_PROXY"] = "http://127.0.0.1:8227"
 os.environ["HTTPS_PROXY"] = "http://127.0.0.1:8227"
@@ -26,7 +29,7 @@ CDN_BASE_URL = "https://storage.cloud.google.com/cdn.ecarbon.kr" # 실제 CDN �
 ENABLE_REMOTE_LOGGING = True # True로 설정하면 원격 로깅 활성화
 # 중요: 아래 IP 주소를 PC B의 실제 IP 주소로 변경하세요!
 REMOTE_LOG_SERVER_URL = "http://211.253.31.134:5000/log"
-REMOTE_LOG_TIMEOUT_SECONDS = 0.15 # 원격 로깅 요청 타임아웃
+REMOTE_LOG_TIMEOUT_SECONDS = 0.1 # 원격 로깅 요청 타임아웃
 # --- 원격 로깅 설정 끝 ---
 
 # --- 사용자 설정 끝 ---
@@ -54,11 +57,11 @@ def update_cdn_file_list_periodically():
     """1시간마다 GCS 버킷의 파일 목록을 갱신합니다."""
     while True:
         try:
-            ctx.log.info(f"[CDN File List] 파일 목록 업데이트 시작: {datetime.datetime.now().isoformat()}")
+            ctx.log.info(f"[CDN File List] CDN file list update started: {datetime.datetime.now().isoformat()}")
             list_blobs_in_bucket(BUCKET_NAME)
-            ctx.log.info(f"[CDN File List] 파일 목록 업데이트 완료: {datetime.datetime.now().isoformat()}")
+            ctx.log.info(f"[CDN File List] CDN file list update completed: {datetime.datetime.now().isoformat()}")
         except Exception as e:
-            ctx.log.error(f"[CDN File List] 파일 목록 업데이트 중 오류 발생: {e}")
+            ctx.log.error(f"[CDN File List] CDN file list update error: {e}")
         
         # 지정된 시간(30분) 동안 대기
         time.sleep(UPDATE_INTERVAL)
@@ -79,16 +82,16 @@ def download_smaller_images_list(bucket_name, timeout=None):
         if blob.exists():
             # 파일 다운로드
             blob.download_to_filename(SMALLER_IMAGES_LOCAL_PATH)
-            ctx.log.info(f"[Smaller Images] {SMALLER_IMAGES_FILENAME} 파일 다운로드 완료")
+            ctx.log.info(f"[Smaller Images] {SMALLER_IMAGES_FILENAME} file downloaded successfully")
             return True
         else:
-            ctx.log.warn(f"[Smaller Images] {SMALLER_IMAGES_FILENAME} 파일이 버킷에 존재하지 않습니다")
+            ctx.log.warn(f"[Smaller Images] {SMALLER_IMAGES_FILENAME} file not found in bucket")
             # 로컬에 빈 파일 생성
             with open(SMALLER_IMAGES_LOCAL_PATH, 'w', encoding='utf-8') as f:
                 f.write("domain,original_url,recorded_at\n")
             return False
     except Exception as e:
-        ctx.log.error(f"[Smaller Images] 파일 다운로드 중 오류 발생: {e}")
+        ctx.log.error(f"[Smaller Images] smaller_original_images.txt download error: {e}")
         return False
 
 # 작은 이미지 목록 주기적으로 업데이트하는 함수
@@ -96,41 +99,41 @@ def update_smaller_images_list_periodically():
     """주기적으로 GCS 버킷에서 원본 크기가 작은 이미지 목록을 업데이트합니다."""
     while True:
         try:
-            ctx.log.info(f"[Smaller Images] 목록 업데이트 시작: {datetime.datetime.now().isoformat()}")
+            ctx.log.info(f"[Smaller Images] smaller_original_images.txt update started: {datetime.datetime.now().isoformat()}")
             download_smaller_images_list(BUCKET_NAME)
-            ctx.log.info(f"[Smaller Images] 목록 업데이트 완료: {datetime.datetime.now().isoformat()}")
+            ctx.log.info(f"[Smaller Images] smaller_original_images.txt update completed: {datetime.datetime.now().isoformat()}")
         except Exception as e:
-            ctx.log.error(f"[Smaller Images] 목록 업데이트 중 오류 발생: {e}")
+            ctx.log.error(f"[Smaller Images] smaller_original_images.txt update error: {e}")
         
         # 지정된 시간 동안 대기
         time.sleep(UPDATE_INTERVAL)
 
 # 프로그램 시작시 최초 1회 파일 목록 업데이트 - 백그라운드 스레드로 실행하여 블로킹 방지
 def init_cdn_file_list():
-    ctx.log.info("[CDN File List] 초기 파일 목록 생성 중...")
+    ctx.log.info("[CDN File List] Initial CDN file list creation...")
     try:
         list_blobs_in_bucket(BUCKET_NAME, timeout=15)
-        ctx.log.info("[CDN File List] 초기 파일 목록 생성 완료")
+        ctx.log.info("[CDN File List] Initial CDN file list created")
         
         # 작은 이미지 목록 초기 다운로드
         download_smaller_images_list(BUCKET_NAME, timeout=15)
     except Exception as e:
-        ctx.log.error(f"[CDN File List] 초기 파일 목록 생성 중 오류 발생: {e}")
+        ctx.log.error(f"[CDN File List] initial CDN file list creation error: {e}")
 
 # 초기화와 주기적 업데이트를 모두 별도 스레드로 실행
 init_thread = threading.Thread(target=init_cdn_file_list, daemon=True)
 init_thread.start()
-ctx.log.info("[CDN File List] 초기 파일 목록 생성 스레드 시작됨")
+ctx.log.info("[CDN File List] initial CDN file list creation thread started")
 
 # 주기적 업데이트 스레드 시작
 updater_thread = threading.Thread(target=update_cdn_file_list_periodically, daemon=True)
 updater_thread.start()
-ctx.log.info("[CDN File List] 주기적 업데이트 스레드 시작됨")
+ctx.log.info("[CDN File List] periodic CDN file list update thread started")
 
 # 작은 이미지 목록 주기적 업데이트 스레드 시작
 smaller_images_thread = threading.Thread(target=update_smaller_images_list_periodically, daemon=True)
 smaller_images_thread.start()
-ctx.log.info("[Smaller Images] 주기적 업데이트 스레드 시작됨")
+ctx.log.info("[Smaller Images] periodic smaller_original_images.txt update thread started")
 
 # 파일에서 URL을 찾는 함수
 def search_path(file_path, Target_URL):
@@ -143,10 +146,10 @@ def search_path(file_path, Target_URL):
             # 모든 줄을 검사했지만 찾지 못한 경우
             return False
     except FileNotFoundError:
-        print(f"파일을 찾을 수 없습니다: {file_path}")
+        print(f"File not found: {file_path}")
         return False
     except Exception as e:
-        print(f"파일 읽기 중 오류가 발생했습니다: {e}")
+        print(f"Error reading file: {e}")
         return False
 
 # 원본 이미지가 '작은 이미지 목록'에 있는지 확인하는 함수
@@ -162,10 +165,10 @@ def is_smaller_original_image(original_url):
                     return True
         return False
     except FileNotFoundError:
-        ctx.log.warn(f"[Smaller Images] 파일을 찾을 수 없습니다: {SMALLER_IMAGES_LOCAL_PATH}")
+        ctx.log.warn(f"[Smaller Images] File not found: {SMALLER_IMAGES_LOCAL_PATH}")
         return False
     except Exception as e:
-        ctx.log.error(f"[Smaller Images] 파일 읽기 중 오류 발생: {e}")
+        ctx.log.error(f"[Smaller Images] Error reading file: {e}")
         return False
 
 
@@ -239,7 +242,7 @@ class CheckAndLogMissingWebp:
             try:
                 # 원본 이미지가 '작은 이미지 목록'에 있는지 확인
                 if is_smaller_original_image(original_path_full):
-                    print(f"[Smaller Original] 원본 이미지가 '작은 이미지 목록'에 있습니다: {original_path_full}")
+                    print(f"[Smaller Original] Original image found in smaller_original_images.txt: {original_path_full}")
                     # # 작은 이미지 목록에 있으면 원본 이미지 사용
                     # flow.response = http.Response.make(
                     #     302,  # Status code: Found (Temporary Redirect)

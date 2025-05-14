@@ -63,7 +63,7 @@ app = FastAPI()
 # --- API 엔드포인트 정의 ---
 @app.post("/log") # POST 메서드의 /log 경로
 async def receive_log(log_entry: LogEntry, background_tasks: BackgroundTasks): # 요청 본문을 LogEntry 모델에 자동으로 바인딩
-    """mitmproxy로부터 로그 메시지를 받아 콘솔에 출력합니다."""
+    """mitmproxy로부터 로그 메시지를 받아 콘솔에 출력합니다.""" 
     try:
         # Pydantic 모델 덕분에 데이터 유효성 검사 및 기본값 처리가 이미 완료됨
         # log_entry 객체의 속성으로 데이터에 접근
@@ -81,7 +81,7 @@ async def receive_log(log_entry: LogEntry, background_tasks: BackgroundTasks): #
             background_tasks.add_task(
                 process_image,
                 log_entry.domain, log_entry.origin_url, "cdn.ecarbon.kr", 
-                100, log_entry.filename_base, log_entry.original_path_query
+                92, log_entry.filename_base, log_entry.original_path_query
         )
 
         # 성공 응답 반환 (FastAPI가 자동으로 JSON으로 변환)

@@ -26,7 +26,7 @@ def download_image(image_url):
     except requests.exceptions.RequestException as e:
         raise Exception(f"이미지 다운로드 중 오류 발생: {e}")
 
-def convert_to_webp(image_data, quality=100, lossless=True):
+def convert_to_webp(image_data, quality=95, lossless=True):
     """
     이미지를 WebP 형식으로 변환하며 투명도를 유지합니다.
 
@@ -116,7 +116,7 @@ def save_url_to_gcs(domain, original_url, bucket_name):
         print(f"원본 이미지 URL 저장 중 오류 발생: {e}")
 
 
-def process_image(domain, content_url, bucket_name, quality=100, filename_base=None, original_path_query=None):
+def process_image(domain, content_url, bucket_name, quality=95, filename_base=None, original_path_query=None):
     """
     이미지 URL에서 이미지를 다운로드하고, WebP로 변환한 후 GCS에 업로드합니다.
     

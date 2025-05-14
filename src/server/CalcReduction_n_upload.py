@@ -149,7 +149,7 @@ def save_reduction_to_firestore(result: dict, domain: str, original_url: str, we
         }
         
         # Firestore에 문서 추가
-        doc_ref = collection_ref.document("TestUser")
+        doc_ref = collection_ref.document("0512Test")
         doc_ref.update({"reduction_logs": firestore.ArrayUnion([data])})
         
         logger.info(f"감소량 계산 결과가 Firestore에 저장되었습니다. 문서 ID: {doc_ref.id}")
