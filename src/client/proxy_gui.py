@@ -300,11 +300,53 @@ class ProxyGUI:
             # Use the first mitmdump that exists
             mitmdump_path = next((path for path in possible_mitmdump_paths if os.path.exists(path) or path == "mitmdump"), MITMDUMP_PATH)
             
+            # 스크립트 파일이 실행 가능한지 확인
+            if os.path.exists(script_path):
+                # 스크립트 파일의 내용을 로그에 출력하여 디버깅
+                try:
+                    with open(script_path, 'r', encoding='utf-8') as f:
+                        script_content = f.read(500)  # 처음 500자만 읽기
+                        self.log(f"Script content preview: {script_content[:100]}...")
+                except Exception as e:
+                    self.log(f"Error reading script file: {e}")
+            
+            # 스크립트 파일이 있는 디렉토리에 필요한 파일들이 있는지 확인
+            script_dir = os.path.dirname(script_path)
+            self.log(f"Checking files in script directory: {script_dir}")
+            try:
+                files_in_dir = os.listdir(script_dir)
+                self.log(f"Files in script directory: {files_in_dir}")
+            except Exception as e:
+                self.log(f"Error listing directory: {e}")
+            
+            # 필요한 데이터 파일 생성 (cdn_file_list.txt, smaller_original_images.txt)
+            cdn_file_path = os.path.join(script_dir, "cdn_file_list.txt")
+            smaller_images_path = os.path.join(script_dir, "smaller_original_images.txt")
+            
+            # 파일이 없으면 빈 파일 생성
+            if not os.path.exists(cdn_file_path):
+                try:
+                    with open(cdn_file_path, 'w') as f:
+                        pass
+                    self.log(f"Created empty file: {cdn_file_path}")
+                except Exception as e:
+                    self.log(f"Error creating cdn_file_list.txt: {e}")
+            
+            if not os.path.exists(smaller_images_path):
+                try:
+                    with open(smaller_images_path, 'w') as f:
+                        pass
+                    self.log(f"Created empty file: {smaller_images_path}")
+                except Exception as e:
+                    self.log(f"Error creating smaller_original_images.txt: {e}")
+            
             # mitmdump 명령어 구성
             mitm_command = [mitmdump_path, "-p", MITM_PORT]
             if os.path.exists(script_path):
-                mitm_command.extend(["-s", script_path])
-                self.log(f"Using script: {script_path}")
+                # 스크립트 파일의 절대 경로 사용
+                abs_script_path = os.path.abspath(script_path)
+                mitm_command.extend(["-s", abs_script_path])
+                self.log(f"Using script (absolute path): {abs_script_path}")
             else:
                 self.log(f"Warning: Script not found at {script_path}")
             
@@ -318,13 +360,49 @@ class ProxyGUI:
             # Add environment variables to help mitmproxy find its dependencies
             env = os.environ.copy()
             if is_bundled:
-                env['PYTHONPATH'] = base_dir
+                # 스크립트 디렉토리를 PYTHONPATH에 추가
+                env['PYTHONPATH'] = f"{script_dir}:{env.get('PYTHONPATH', '')}" if env.get('PYTHONPATH') else script_dir
+                # 현재 디렉토리도 PYTHONPATH에 추가
+                exec_dir = os.path.dirname(sys.executable)
+                env['PYTHONPATH'] = f"{exec_dir}:{env['PYTHONPATH']}" if env.get('PYTHONPATH') else exec_dir
+                
                 if current_os == "Darwin":
-                    # For macOS, add the Frameworks directory to PATH
-                    env['PATH'] = f"{base_dir}:{env.get('PATH', '')}" 
+                    # macOS에서 필요한 디렉토리들을 PATH에 추가
+                    frameworks_dir = os.path.join(os.path.dirname(sys.executable), "../Frameworks")
+                    resources_dir = os.path.join(os.path.dirname(sys.executable), "../Resources")
+                    env['PATH'] = f"{frameworks_dir}:{resources_dir}:{script_dir}:{env.get('PATH', '')}" if env.get('PATH') else f"{frameworks_dir}:{resources_dir}:{script_dir}"
+                    
+                    # 추가 환경 변수 설정
+                    env['MITMPROXY_PATH'] = mitmdump_path
+                    env['SCRIPT_PATH'] = abs_script_path
+                    env['CDN_FILE_LIST_PATH'] = cdn_file_path
+                    env['SMALLER_IMAGES_LOCAL_PATH'] = smaller_images_path
+                    
+                    # 로그에 환경 변수 출력
+                    self.log(f"Environment variables: PYTHONPATH={env.get('PYTHONPATH', 'Not set')}")
+                    self.log(f"Environment variables: PATH={env.get('PATH', 'Not set')}")
+                    self.log(f"Environment variables: CDN_FILE_LIST_PATH={env.get('CDN_FILE_LIST_PATH', 'Not set')}")
+                    self.log(f"Environment variables: SMALLER_IMAGES_LOCAL_PATH={env.get('SMALLER_IMAGES_LOCAL_PATH', 'Not set')}")
+            
+            # 디버깅을 위해 표준 출력과 표준 에러를 파이프로 연결
+            popen_kwargs['stdout'] = subprocess.PIPE
+            popen_kwargs['stderr'] = subprocess.PIPE
+            popen_kwargs['text'] = True
             
             self.mitm_process = subprocess.Popen(mitm_command, env=env, **popen_kwargs)
             time.sleep(3)  # 프록시가 시작될 시간을 줌
+            
+            # 표준 출력과 에러를 읽는 스레드 시작
+            def read_output(pipe, log_prefix):
+                while self.mitm_process and self.mitm_process.poll() is None:
+                    line = pipe.readline()
+                    if line:
+                        self.log(f"{log_prefix}: {line.strip()}")
+            
+            if self.mitm_process.stdout:
+                threading.Thread(target=read_output, args=(self.mitm_process.stdout, "STDOUT"), daemon=True).start()
+            if self.mitm_process.stderr:
+                threading.Thread(target=read_output, args=(self.mitm_process.stderr, "STDERR"), daemon=True).start()
             
             if self.mitm_process.poll() is not None:
                 self.log("mitmproxy failed to start")
@@ -347,6 +425,8 @@ class ProxyGUI:
             
         except Exception as e:
             self.log(f"Error starting proxy: {e}")
+            import traceback
+            self.log(traceback.format_exc())
     
     def stop_proxy(self):
         """Stop the proxy"""
