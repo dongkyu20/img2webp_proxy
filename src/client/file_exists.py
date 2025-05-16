@@ -1,43 +1,50 @@
 import os
+import json
 from google.cloud import storage
 from google.api_core import exceptions # 예외 처리를 위해 임포트
+from google.oauth2 import service_account # 서비스 계정 인증을 위해 임포트
 
 os.environ["REQUESTS_CA_BUNDLE"] = "mitmproxy-ca-cert.pem"
 os.environ["GOOGLE_APPLICATION_CREDENTIALS"] = "woven-province-411903-b1b12d94b3ac.json"
 
+# 서비스 계정 키 파일 경로
+KEY_PATH = os.path.join(os.path.dirname(os.path.abspath(__file__)), "woven-province-411903-b1b12d94b3ac.json")
+
 
 def list_blobs_in_bucket(bucket_name, output_file="cdn_file_list.txt", timeout=None):
-    """지정된 Google Cloud Storage 버킷의 파일 목록과 각 파일의 용량을 출력하고 텍스트 파일에 저장합니다."""
+    """Print the list of files in the specified Google Cloud Storage bucket and save it to a text file."""
     
-    # 클라이언트 초기화 - timeout 설정 추가
-    storage_client = storage.Client()
-    # 클라이언트 타임아웃 설정
+    # 서비스 계정 자격 증명 명시적 로드
+    credentials = service_account.Credentials.from_service_account_file(KEY_PATH)
+    
+    # 명시적 자격 증명으로 클라이언트 초기화
+    storage_client = storage.Client(credentials=credentials)
     storage_client._http.timeout = timeout if timeout else None
 
     try:
-        # 버킷 내의 모든 blob(파일) 목록 가져오기
-        # list_blobs()는 iterator를 반환합니다.
+        # Get all blobs (files) in the bucket
+        # list_blobs() returns an iterator
         blobs = storage_client.list_blobs(bucket_name)
 
-        print(f"'{bucket_name}' 버킷의 파일 목록:")
+        print(f"'{bucket_name}' bucket file list:")
         
-        # 파일에 쓰기 위해 파일 열기
+        # Open file for writing
         with open(output_file, 'w', encoding='utf-8') as f:
             found_files = False
             for blob in blobs:
                 blob_name = blob.name
-                blob_size = blob.size  # 파일 크기(bytes)
-                size_kb = blob_size / 1024  # KB 단위 변환
-                size_mb = size_kb / 1024  # MB 단위 변환
+                blob_size = blob.size  # File size (bytes)
+                size_kb = blob_size / 1024  # KB unit conversion
+                size_mb = size_kb / 1024  # MB unit conversion
                 
-                # 적절한 크기 단위 선택
+                # Select appropriate size unit
                 if size_mb >= 1:
                     size_display = f"{size_mb:.2f} MB"
                 else:
                     size_display = f"{size_kb:.2f} KB"
                 
-                print(f"- {blob_name} (크기: {size_display})") # 콘솔에 출력
-                f.write(f"{blob_name}\t{blob_size}\n") # 파일에 저장 (탭으로 구분)
+                print(f"- {blob_name} (size: {size_display})") # Console output
+                f.write(f"{blob_name}\t{blob_size}\n") # Save to file (tab separated)
                 found_files = True
 
             if not found_files:

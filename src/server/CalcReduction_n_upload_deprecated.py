@@ -7,17 +7,21 @@ import datetime
 
 from search_ori_file import search_original_image_size
 
+# logging configuration
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
 
-cred_path = os.path.join(os.path.dirname(__file__), 'ecarbon-57bf2-3de439977a33.json')
+# Firebase authentication information
+cred_path = os.path.join(os.path.dirname(__file__),'..','..', 'ecarbon-57bf2-3de439977a33.json')
 
+# Firebase initialization
 try:
     app = firebase_admin.get_app()
 except ValueError:
     cred = credentials.Certificate(cred_path)
     app = firebase_admin.initialize_app(cred)
 
+# Firestore database
 db = firestore.client()
 
 def find_webp_file_size(webp_path: str) -> int:
@@ -28,10 +32,10 @@ def find_webp_file_size(webp_path: str) -> int:
         webp_path (str): WebP file path (domain/filename format)
         
     Returns:
-        int: WebP file size in bytes, not found case -1
+        int: WebP file size in bytes if found, -1 if not found
     """
     try:
-        file_list_path = os.path.join(os.path.dirname(__file__), 'cdn_file_list.txt')
+        file_list_path = os.path.join(os.path.dirname(__file__),'..','..', 'cdn_file_list.txt')
         
         with open(file_list_path, 'r', encoding='utf-8') as file:
             for line in file:
@@ -55,7 +59,7 @@ def find_webp_file_size(webp_path: str) -> int:
         logger.error(f"WebP file size search error: {e}")
         return -1
 
-def calc_reduction(domain: str, original_url: str, webp_path: str) -> dict:
+def calc_reduction(original_url: str, webp_path: str) -> dict:
     """
     Calculate the size difference between the original image and the WebP image.
     
@@ -66,11 +70,11 @@ def calc_reduction(domain: str, original_url: str, webp_path: str) -> dict:
     Returns:
         dict: Calculation result
             {
-                'original_size': Original size in bytes,
+                'original_size': original size in bytes,
                 'webp_size': WebP size in bytes,
-                'reduction_bytes': Reduction in bytes,
-                'reduction_percent': Reduction percentage,
-                'success': Success flag
+                'reduction_bytes': reduction in bytes,
+                'reduction_percent': reduction percentage,
+                'success': success flag
             }
     """
     result = {
@@ -82,12 +86,15 @@ def calc_reduction(domain: str, original_url: str, webp_path: str) -> dict:
         'timestamp': datetime.datetime.now().isoformat()
     }
     
-    original_size = search_original_image_size(domain, original_url, db, app)
+    # search original image size
+    original_size = search_original_image_size(original_url, db, app)
     result['original_size'] = original_size
     
+    # search webp file size
     webp_size = find_webp_file_size(webp_path)
     result['webp_size'] = webp_size
     
+    # check if both files are found
     if original_size > 0 and webp_size > 0:
         result['success'] = True
         result['reduction_bytes'] = original_size - webp_size
@@ -118,10 +125,10 @@ def save_reduction_to_firestore(result: dict, domain: str, original_url: str, we
         str: Saved document ID
     """
     try:
-        # reduction_logs 콜렉션 가져오기
+        # reduction_logs collection
         collection_ref = db.collection('reduction_logs')
         
-        # 저장할 데이터 구성
+        # data to save
         data = {
             'domain': domain,
             'original_url': original_url,
@@ -131,12 +138,11 @@ def save_reduction_to_firestore(result: dict, domain: str, original_url: str, we
             'reduction_bytes': result['reduction_bytes'],
             'reduction_percent': result['reduction_percent'],
             'success': result['success'],
-            'timestamp': datetime.datetime.now().isoformat()
+            'timestamp': firestore.SERVER_TIMESTAMP
         }
         
-        # Firestore에 문서 추가
-        doc_ref = collection_ref.document("0512Test")
-        doc_ref.update({"reduction_logs": firestore.ArrayUnion([data])})
+        # add document to Firestore
+        doc_ref = collection_ref.document("user_id").set(data, merge=True)
         
         logger.info(f"Calculation result saved to Firestore. Document ID: {doc_ref.id}")
         
@@ -146,7 +152,7 @@ def save_reduction_to_firestore(result: dict, domain: str, original_url: str, we
         logger.error(f"Firestore storage error: {e}")
         return ""
 
-# Main function - Manages the entire process
+# main function - manage entire process
 def process_reduction(domain: str, original_url: str, webp_filename: str) -> dict:
     """
     Calculate the size difference between the original image and the WebP image and save it to Firestore.
@@ -154,16 +160,16 @@ def process_reduction(domain: str, original_url: str, webp_filename: str) -> dic
     Args:
         domain (str): Domain
         original_url (str): Original image URL
-        webp_filename (str): WebP filename
+        webp_filename (str): WebP file name
         
     Returns:
         dict: Calculation result
     """
-    # WebP file path (domain/webp_filename)
+    # WebP file path configuration (domain/webp_filename)
     webp_path = f"{domain}/{webp_filename}"
     
-    # Calculate reduction
-    result = calc_reduction(domain, original_url, webp_path)
+    # Calculate the size difference between the original image and the WebP image
+    result = calc_reduction(original_url, webp_path)
     
     # If the calculation is successful, save the result to Firestore
     if result['success']:
@@ -178,14 +184,14 @@ def process_reduction(domain: str, original_url: str, webp_filename: str) -> dic
     return result
 
 
-# Test code
+# test code
 if __name__ == "__main__":
-    # Test data
-    test_domain = "korea.ac.kr"
+    # test data
+    test_domain = "www.korea.ac.kr"
     test_original_url = "https://www.korea.ac.kr/sites/ko/images/common/logo_w.png"
     test_webp_filename = "logo_w.webp"
     
-    # Test execution
+    # test execution
     print(f"\n[Test Start] Original URL: {test_original_url}")
     print(f"WebP file: {test_domain}/{test_webp_filename}\n")
     

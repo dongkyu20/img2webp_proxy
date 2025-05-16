@@ -12,3 +12,7 @@ emission_logs/
 dist/
 build/
 !requirements.txt
+!cdn_file_list.txt
+build_package_window.py
+img_proxy_window.spec
+*.p12
